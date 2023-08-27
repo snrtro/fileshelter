@@ -20,7 +20,7 @@
 #include "FileShelterApplication.hpp"
 
 #include <Wt/WEnvironment.h>
-#include <Wt/WBootstrapTheme.h>
+#include <Wt/WBootstrap5Theme.h>
 #include <Wt/WStackedWidget.h>
 #include <Wt/WNavigationBar.h>
 #include <Wt/WMenu.h>
@@ -42,17 +42,16 @@ namespace UserInterface {
 
 static const char * defaultPath{ "/share-create" };
 
-
-std::unique_ptr<Wt::WApplication>
-FileShelterApplication::create(const Wt::WEnvironment& env)
+std::filesystem::path
+prepareUploadDirectory()
 {
-	return std::make_unique<FileShelterApplication>(env);
+	return FileShelterApplication::prepareUploadDirectory();
 }
 
-FileShelterApplication*
-FileShelterApplication::instance()
+std::unique_ptr<Wt::WApplication>
+createFileShelterApplication(const Wt::WEnvironment& env)
 {
-	return reinterpret_cast<FileShelterApplication*>(Wt::WApplication::instance());
+	return std::make_unique<FileShelterApplication>(env);
 }
 
 enum Idx
@@ -97,10 +96,6 @@ FileShelterApplication::FileShelterApplication(const Wt::WEnvironment& env)
 	useStyleSheet("css/fileshelter.css");
 	useStyleSheet("resources/font-awesome/css/font-awesome.min.css");
 
-	// Extra javascript
-	requireJQuery("js/jquery-1.10.2.min.js");
-	require("js/bootstrap.min.js");
-
 	// Resouce bundles
 	messageResourceBundle().use(appRoot() + "templates");
 	messageResourceBundle().use(appRoot() + "messages");
@@ -108,9 +103,7 @@ FileShelterApplication::FileShelterApplication(const Wt::WEnvironment& env)
 	if (Service<IConfig>::get()->getPath("tos-custom").empty())
 		messageResourceBundle().use(appRoot() + "tos");
 
-	auto bootstrapTheme {std::make_unique<Wt::WBootstrapTheme>()};
-	bootstrapTheme->setVersion(Wt::BootstrapVersion::v3);
-	bootstrapTheme->setResponsive(true);
+	auto bootstrapTheme {std::make_unique<Wt::WBootstrap5Theme>()};
 	setTheme(std::move(bootstrapTheme));
 
 	FS_LOG(UI, INFO) << "Client address = " << env.clientAddress() << ", UserAgent = '" << env.userAgent() << "', Locale = " << env.locale().name() << ", path = '" << env.internalPath() << "'";
@@ -120,14 +113,33 @@ FileShelterApplication::FileShelterApplication(const Wt::WEnvironment& env)
 	enableInternalPaths();
 }
 
+std::filesystem::path
+FileShelterApplication::prepareUploadDirectory()
+{
+	_workingDirectory = Service<IConfig>::get()->getPath("working-dir");
+
+	std::filesystem::path uploadDirectory {_workingDirectory / "uploaded-files"};
+	std::filesystem::create_directories (uploadDirectory);
+
+	// Set the WT_TMP_DIR inside the working dir, used to upload files
+	setenv("WT_TMP_DIR", uploadDirectory.string().c_str(), 1);
+
+	return uploadDirectory;
+}
+
+FileShelterApplication*
+FileShelterApplication::instance()
+{
+	return reinterpret_cast<FileShelterApplication*>(Wt::WApplication::instance());
+}
+
 void
 FileShelterApplication::initialize()
 {
 	Wt::WTemplate* main {root()->addNew<Wt::WTemplate>(Wt::WString::tr("template-main"))};
 
 	Wt::WNavigationBar* navbar {main->bindNew<Wt::WNavigationBar>("navbar-top")};
-	navbar->setResponsive(true);
-	navbar->setTitle("<i class=\"fa fa-external-link\"></i> " + Wt::WString::tr("msg-app-name"), Wt::WLink(Wt::LinkType::InternalPath, defaultPath));
+	navbar->setTitle("<i class=\"fa fa-external-link\"></i> " + Wt::WString::tr("msg-app-name"), Wt::WLink {Wt::LinkType::InternalPath, defaultPath});
 
 	Wt::WMenu* menu {navbar->addMenu(std::make_unique<Wt::WMenu>())};
 	{
@@ -144,7 +156,7 @@ FileShelterApplication::initialize()
 
 	// Same order as Idx enum
 	Wt::WStackedWidget* mainStack {container->addNew<Wt::WStackedWidget>()};
-	mainStack->addNew<ShareCreate>();
+	mainStack->addNew<ShareCreate>(_workingDirectory);
 	mainStack->addNew<ShareCreated>();
 	mainStack->addNew<ShareDownload>();
 	mainStack->addNew<ShareEdit>();

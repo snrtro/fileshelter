@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <filesystem>
+
 #include <Wt/WString.h>
 #include <Wt/WContainerWidget.h>
 
@@ -30,13 +32,16 @@ namespace UserInterface
 	class ShareCreate : public Wt::WContainerWidget
 	{
 		public:
-			ShareCreate();
+			ShareCreate(const std::filesystem::path& workingDirectory);
 
 		private:
 			void handlePathChanged();
 
 			void displayCreate();
 			void displayPassword();
+
+			const std::filesystem::path& _workingDirectory;
+			bool _isPasswordVerified{};
 	};
 
 } // namespace UserInterface

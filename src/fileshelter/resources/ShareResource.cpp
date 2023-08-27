@@ -31,7 +31,7 @@
 #include "utils/FileResourceHandlerCreator.hpp"
 #include "utils/Logger.hpp"
 #include "utils/Service.hpp"
-#include "utils/Zipper.hpp"
+#include "utils/IZipper.hpp"
 #include "utils/ZipperResourceHandlerCreator.hpp"
 
 using namespace Share;
@@ -46,17 +46,19 @@ namespace
 
 		return share.uuid.toString() + ".zip";
 	}
+}
 
-	std::unique_ptr<Zip::Zipper>
-	createZipper(const ShareDesc& share)
+void
+ShareResource::setWorkingDirectory(std::filesystem::path workingDirectory)
+{
+	if (std::filesystem::is_directory(workingDirectory))
 	{
-
-		std::map<std::string, std::filesystem::path> zipFiles;
-		for (const FileDesc& file : share.files)
-			zipFiles.emplace(file.clientPath, file.path);
-
-		// mask creation time
-		return std::make_unique<Zip::Zipper>(zipFiles, Wt::WLocalDateTime::currentDateTime().toUTC());
+		_workingDirectory = workingDirectory;
+		FS_LOG(RESOURCE, INFO) << "Working directory set to '" << _workingDirectory.string() << "'";
+	}
+	else
+	{
+		FS_LOG(RESOURCE, ERROR) << "Cannot set working directory to '" << _workingDirectory.string() << "'";
 	}
 }
 
@@ -70,7 +72,6 @@ ShareResource::createLink(const ShareUUID& uuid, std::optional<std::string_view>
 {
 	return {Wt::LinkType::Url, std::string {getDeployPath()} + "?id=" + uuid.toString() + (password ? ("&p=" + Wt::Utils::hexEncode(std::string {*password})) : "")};
 }
-
 
 void
 ShareResource::handleRequest(const Wt::Http::Request& request, Wt::Http::Response& response)
@@ -97,18 +98,24 @@ ShareResource::handleRequest(const Wt::Http::Request& request, Wt::Http::Respons
 			const ShareDesc share {Service<IShareManager>::get()->getShareDesc(shareUUID, password)};
 			if (share.files.size() > 1)
 			{
-				std::unique_ptr<Zip::Zipper> zipper {createZipper(share)};
-				response.setContentLength(zipper->getTotalZipFile());
+				std::unique_ptr<Zip::IZipper> zipper {createZipper(share)};
 				response.setMimeType("application/zip");
 				resourceHandler = createZipperResourceHandler(std::move(zipper));
 			}
 			else
 			{
 				response.setMimeType("application/octet-stream");
-				resourceHandler = createFileResourceHandler(share.files.front().path);
+				resourceHandler = createFileResourceHandler(getAbsolutePath(share.files.front().path));
 			}
 
-			suggestFileName(getClientFileName(share).string());
+			auto encodeHttpHeaderField = [](const std::string& fieldName, const std::string& fieldValue)
+			{
+				// This implements RFC 5987
+				return fieldName + "*=UTF-8''" + Wt::Utils::urlEncode(fieldValue);
+			};
+
+			const std::string cdp {encodeHttpHeaderField("filename", getClientFileName(share).string())};
+			response.addHeader("Content-Disposition", "attachment; " + cdp);
 
 			Service<IShareManager>::get()->incrementReadCount(shareUUID);
 		}
@@ -117,9 +124,14 @@ ShareResource::handleRequest(const Wt::Http::Request& request, Wt::Http::Respons
 			resourceHandler = Wt::cpp17::any_cast<std::shared_ptr<IResourceHandler>>(continuation->data());
 		}
 
-		continuation = resourceHandler->processRequest(request, response);
-		if (continuation)
+		resourceHandler->processRequest(request, response);
+		if (!resourceHandler->isComplete())
+		{
+			continuation = response.createContinuation();
 			continuation->setData(resourceHandler);
+		}
+
+		return;
 	}
 	catch (const UUIDException& e)
 	{
@@ -129,9 +141,39 @@ ShareResource::handleRequest(const Wt::Http::Request& request, Wt::Http::Respons
 	{
 		FS_LOG(RESOURCE, ERROR) << "Caught Share::Exception: " << e.what();
 	}
-	catch (Zip::ZipperException& exception)
+	catch (Zip::Exception& exception)
 	{
 		FS_LOG(RESOURCE, ERROR) << "Zipper exception: " << exception.what();
 	}
+
+	response.setStatus(404);
+}
+
+void
+ShareResource::handleAbort(const Wt::Http::Request& request)
+{
+	Wt::Http::ResponseContinuation* continuation {request.continuation()};
+	if (!continuation)
+		return;
+
+	std::shared_ptr<IResourceHandler> resourceHandler {Wt::cpp17::any_cast<std::shared_ptr<IResourceHandler>>(continuation->data())};
+	resourceHandler->abort();
+}
+
+std::filesystem::path
+ShareResource::getAbsolutePath(const std::filesystem::path& p)
+{
+	return p.is_absolute() ? p : _workingDirectory / p;
+}
+
+std::unique_ptr<Zip::IZipper>
+ShareResource::createZipper(const ShareDesc& share)
+{
+	Zip::EntryContainer zipEntries;
+	for (const FileDesc& file : share.files)
+		zipEntries.emplace_back(Zip::Entry {file.clientPath, getAbsolutePath(file.path)});
+
+	// mask creation time
+	return Zip::createArchiveZipper(zipEntries);
 }
 

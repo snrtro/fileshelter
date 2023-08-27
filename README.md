@@ -1,8 +1,5 @@
 # FileShelter
-
 [![Last Release](https://img.shields.io/github/v/release/epoupon/fileshelter?logo=github&label=latest)](https://github.com/epoupon/fileshelter/releases)
-[![Build](https://img.shields.io/github/workflow/status/epoupon/fileshelter/Build?logo=github)](https://github.com/epoupon/fileshelter/actions)
-[![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/epoupon/fileshelter.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/epoupon/fileshelter/context:cpp)
 
 _FileShelter_ is a self-hosted software that allows you to easily share files over the Internet.
 Just upload one or more files and get an URL back!
@@ -15,23 +12,25 @@ A [demo](https://fileshelter-demo.poupon.dev) instance is available, with the fo
 - Period of validity, from one hour to many years
 - Optional password protection (download and/or upload)
 - Practically unique links, using [UUID](https://fr.wikipedia.org/wiki/Universal_Unique_Identifier)
+- Create a zip file on the fly for shares containing multiple files
 - Private edit links, used to remove the files or to check the download counters
 - Terms Of Service support, fully or partially customizable
 - Multiple language support
-- Low memory requirements: the demo instance runs on a _Raspberry Pi Zero W_
+- Low memory requirements: the demo instance runs on a _Raspberry Pi_
+- Command line tools to list and create shares
 
-Once the expiry date is reached, the share is no longer available for download. The files are actually deleted roughly two hours after the share has expired. This is to make sure to not interupt any ongoing download.
+Once the expiry date is reached, the share is no longer available for download. The files are actually deleted roughly two hours after the share has expired. This is to make sure to not interrupt a download in progress.
 
-## Command line tools
-* `fileshelter-list`: list all the shares available for download
-* `fileshelter-create`: create a share using local files. The files are _not_ copied in the _Fileshelter_'s working directory. Therefore the files must still exist while the share is avalaible for download. The files are _not_ deleted once the share has expired.
+## Command line tool
+`fileshelter-cmd` is a command line tool with the following features:
+* list all the shares available for download.
+* create a share using local files. The files are _not_ copied in the _Fileshelter_'s working directory. Therefore the files must still exist while the share is available for download. The files are _not_ deleted once the share has expired.
+* destroy shares.
 
 ## Installation
-
 See [INSTALL.md](INSTALL.md) file.
 
 ## Contributing
-
 Any feedback is welcome:
 * feel free to participate in [discussions](https://github.com/epoupon/fileshelter/discussions) if you have questions,
 * report any bug or request for new features in the [issue tracker](https://github.com/epoupon/fileshelter/issues),

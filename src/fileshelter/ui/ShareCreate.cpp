@@ -52,7 +52,8 @@ namespace UserInterface
 	};
 
 
-	ShareCreate::ShareCreate()
+	ShareCreate::ShareCreate(const std::filesystem::path& workingDirectory)
+	: _workingDirectory {workingDirectory}
 	{
 		wApp->internalPathChanged().connect(this, [this]
 		{
@@ -71,7 +72,7 @@ namespace UserInterface
 		if (!wApp->internalPathMatches("/share-create"))
 			return;
 
-		if (PasswordUtils::isUploadPassordRequired())
+		if (!_isPasswordVerified && PasswordUtils::isUploadPassordRequired())
 			displayPassword();
 		else
 			displayCreate();
@@ -83,6 +84,7 @@ namespace UserInterface
 		ShareCreatePassword* view {addNew<ShareCreatePassword>()};
 		view->success().connect([=]
 		{
+			_isPasswordVerified = true;
 			clear();
 			displayCreate();
 		});
@@ -101,7 +103,7 @@ namespace UserInterface
 
 		Wt::WStackedWidget* stack {addNew<Wt::WStackedWidget>()};
 
-		ShareCreateFormView* form {stack->addNew<ShareCreateFormView>()};
+		ShareCreateFormView* form {stack->addNew<ShareCreateFormView>(_workingDirectory)};
 		ShareCreateProgress* progress {stack->addNew<ShareCreateProgress>()};
 
 		form->progressUpdate().connect(progress, [=](unsigned progressPerCent) { progress->handleProgressUpdate(progressPerCent); });
@@ -114,10 +116,10 @@ namespace UserInterface
 		form->complete().connect([=](const ShareCreateParameters& shareParameters, const std::vector<FileCreateParameters>& filesParameters)
 		{
 			FS_LOG(UI, DEBUG) << "Upload complete!";
-			const Share::ShareEditUUID editUUID {Service<IShareManager>::get()->createShare(shareParameters, filesParameters, true /* transfer ownership */)};
+			const Share::ShareDesc shareDesc {Service<IShareManager>::get()->createShare(shareParameters, filesParameters, true /* transfer file ownership */)};
 
 			FS_LOG(UI, DEBUG) << "Redirecting...";
-			wApp->setInternalPath("/share-created/" + editUUID.toString(), true);
+			wApp->setInternalPath("/share-created/" + shareDesc.editUuid.toString(), true);
 
 			// Clear the widget in order to flush the temporary uploaded files
 			FS_LOG(UI, DEBUG) << "Clearing...";

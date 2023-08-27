@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Emeric Poupon
+ * Copyright (C) 2022 Emeric Poupon
  *
  * This file is part of fileshelter.
  *
@@ -19,10 +19,10 @@
 
 #pragma once
 
-#include <memory>
+#include <filesystem>
 
-#include "utils/IResourceHandler.hpp"
-#include "utils/IZipper.hpp"
-
-std::unique_ptr<IResourceHandler> createZipperResourceHandler(std::unique_ptr<Zip::IZipper> zipper);
-
+namespace UserInterface
+{
+	std::filesystem::path prepareUploadDirectory();
+	std::unique_ptr<Wt::WApplication> createFileShelterApplication(const Wt::WEnvironment& env);
+}

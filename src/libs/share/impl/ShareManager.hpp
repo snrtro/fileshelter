@@ -31,7 +31,7 @@ namespace Share
 	class ShareManager : public IShareManager
 	{
 		public:
-			ShareManager(const std::filesystem::path& dbFile, bool enableCleaner);
+			ShareManager(bool enableCleaner);
 			~ShareManager();
 
 			ShareManager(const ShareManager&) = delete;
@@ -46,7 +46,7 @@ namespace Share
 			std::size_t				getMaxValidatityHits() const override { return _maxValidityHits; }
 			bool					canValidityPeriodBeSet() const override { return _canValidityPeriodBeSet; }
 
-			ShareEditUUID	createShare(const ShareCreateParameters& share, const std::vector<FileCreateParameters>& files, bool transferFileOwnership) override;
+			ShareDesc		createShare(const ShareCreateParameters& share, const std::vector<FileCreateParameters>& files, bool transferFileOwnership) override;
 			void			destroyShare(const ShareEditUUID& shareUUID) override;
 			bool			shareHasPassword(const ShareUUID& shareUUID) override;
 			ShareDesc		getShareDesc(const ShareUUID& shareUUID, std::optional<std::string_view> password) override;
@@ -57,6 +57,7 @@ namespace Share
 
 			void			validateShareSizes(const std::vector<FileCreateParameters>& files, const std::vector<FileSize>& fileSizes);
 
+			const std::filesystem::path	_workingDirectory;
 			Db _db;
 
 			std::unique_ptr<ShareCleaner>	_shareCleaner;

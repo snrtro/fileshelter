@@ -48,7 +48,7 @@ namespace Share
 			virtual std::size_t				getMaxValidatityHits() const = 0;
 			virtual bool					canValidityPeriodBeSet() const = 0;
 
-			virtual ShareEditUUID			createShare(const ShareCreateParameters& params, const std::vector<FileCreateParameters>& files, bool tranferFilesOwnership) = 0;
+			virtual ShareDesc				createShare(const ShareCreateParameters& params, const std::vector<FileCreateParameters>& files, bool tranferFilesOwnership) = 0;
 			virtual void					destroyShare(const ShareEditUUID& shareUUID) = 0;
 			virtual bool					shareHasPassword(const ShareUUID& shareUUID) = 0;
 			virtual ShareDesc				getShareDesc(const ShareUUID& shareUUID, std::optional<std::string_view> password = std::nullopt) = 0;
@@ -59,6 +59,6 @@ namespace Share
 			virtual void					removeOrphanFiles(const std::filesystem::path& directory) = 0;
 	};
 
-	std::unique_ptr<IShareManager> createShareManager(const std::filesystem::path& dbFile, bool enableCleaner);
+	std::unique_ptr<IShareManager> createShareManager(bool enableCleaner);
 
 } // namespace Share
